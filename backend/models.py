@@ -35,16 +35,36 @@ class IdeaProposal(BaseModel):
     created_at: datetime
 
 class AIResponse(BaseModel):
-    content: str
+    message: str
     suggestions: Optional[List[str]] = None
-    should_advance_stage: bool = False
+    conversation_id: Optional[str] = None
+    stage: ConversationStage = ConversationStage.INITIAL
 
 class ConversationState(BaseModel):
-    session_id: Optional[str] = None
+    id: Optional[str] = None
     messages: List[ChatMessage] = []
-    stage: ConversationStage = ConversationStage.INITIAL
+    current_stage: ConversationStage = ConversationStage.INITIAL
     current_idea: IdeaStructure = IdeaStructure()
     interaction_count: int = 0
+    last_updated: datetime = datetime.now()
+    
+    def add_user_message(self, content: str):
+        message = ChatMessage(
+            role="user",
+            content=content,
+            timestamp=datetime.now()
+        )
+        self.messages.append(message)
+        self.interaction_count += 1
+    
+    def add_ai_message(self, content: str, suggestions: Optional[List[str]] = None):
+        message = ChatMessage(
+            role="assistant",
+            content=content,
+            timestamp=datetime.now(),
+            suggestions=suggestions
+        )
+        self.messages.append(message)
     
     def add_message(self, role: str, content: str, suggestions: Optional[List[str]] = None):
         message = ChatMessage(
@@ -58,6 +78,6 @@ class ConversationState(BaseModel):
     
     def advance_stage(self):
         stages = list(ConversationStage)
-        current_index = stages.index(self.stage)
+        current_index = stages.index(self.current_stage)
         if current_index < len(stages) - 1:
-            self.stage = stages[current_index + 1]
+            self.current_stage = stages[current_index + 1]

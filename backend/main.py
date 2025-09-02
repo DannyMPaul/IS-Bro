@@ -2,9 +2,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-import asyncio
 from datetime import datetime
 import json
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 from ai_service import AIService
 from models import ChatMessage, IdeaProposal, ConversationState
@@ -33,50 +37,53 @@ class ChatResponse(BaseModel):
     suggestions: Optional[List[str]] = None
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+def chat(request: ChatRequest):
     try:
         if not request.session_id:
             request.session_id = f"session_{datetime.now().timestamp()}"
         
         if request.session_id not in conversations:
-            conversations[request.session_id] = ConversationState()
+            conversation = ConversationState()
+            conversation.id = request.session_id
+            conversations[request.session_id] = conversation
         
         conversation = conversations[request.session_id]
         
-        response = await ai_service.process_message(
+        response = ai_service.process_message(
             request.message, 
             conversation
         )
         
         return ChatResponse(
-            response=response.content,
+            response=response.message,
             session_id=request.session_id,
-            conversation_state=conversation.stage,
+            conversation_state=conversation.current_stage.value,
             suggestions=response.suggestions
         )
     
     except Exception as e:
+        print(f"Error in chat endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/conversation/{session_id}")
-async def get_conversation(session_id: str):
+def get_conversation(session_id: str):
     if session_id not in conversations:
         raise HTTPException(status_code=404, detail="Conversation not found")
     
     conversation = conversations[session_id]
     return {
         "messages": conversation.messages,
-        "stage": conversation.stage,
+        "stage": conversation.current_stage.value,
         "current_idea": conversation.current_idea
     }
 
 @app.post("/api/proposal/{session_id}")
-async def generate_proposal(session_id: str):
+def generate_proposal(session_id: str):
     if session_id not in conversations:
         raise HTTPException(status_code=404, detail="Conversation not found")
     
     conversation = conversations[session_id]
-    proposal = await ai_service.generate_proposal(conversation)
+    proposal = ai_service.generate_proposal(conversation)
     
     return proposal
 
