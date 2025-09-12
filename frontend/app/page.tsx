@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Send, Brain, Lightbulb, MessageSquare } from "lucide-react";
+import ChatList from "./components/ChatList";
 
 interface Message {
   role: "user" | "assistant";
@@ -23,6 +24,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
   const [conversationState, setConversationState] = useState("initial");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -32,6 +34,34 @@ export default function Home() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const startNewChat = () => {
+    setMessages([]);
+    setSessionId("");
+    setConversationState("initial");
+  };
+
+  const loadConversation = async (conversationId: string) => {
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/conversations/${conversationId}`
+      );
+      const data = await response.json();
+
+      const loadedMessages = data.messages.map((msg: any) => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp,
+        suggestions: msg.suggestions,
+      }));
+
+      setMessages(loadedMessages);
+      setSessionId(conversationId);
+      setConversationState(data.stage);
+    } catch (error) {
+      console.error("Failed to load conversation:", error);
+    }
+  };
 
   const sendMessage = async (messageText?: string) => {
     const messageToSend = messageText || input;
@@ -67,6 +97,7 @@ export default function Home() {
 
       if (!sessionId) {
         setSessionId(data.session_id);
+        setRefreshTrigger((prev) => prev + 1); // Trigger chat list refresh
       }
 
       setConversationState(data.conversation_state);
@@ -128,112 +159,100 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Brain className="w-8 h-8 text-blue-600" />
-            <h1 className="text-2xl font-bold text-gray-900">Idea Shaper</h1>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            {getStageDisplay(conversationState).icon}
-            <span>{getStageDisplay(conversationState).label}</span>
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-1 max-w-4xl mx-auto w-full flex flex-col">
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {messages.length === 0 && (
-            <div className="text-center py-12">
-              <Brain className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                Hey there! I'm Big Brother.
-              </h2>
-              <p className="text-gray-600 max-w-md mx-auto">
-                I'm here to help you turn that vague idea in your head into
-                something concrete and actionable. Tell me what's on your mind -
-                no matter how rough or incomplete it is.
-              </p>
+    <div className="h-screen flex bg-gray-50">
+      <ChatList
+        currentConversationId={sessionId}
+        onSelectConversation={loadConversation}
+        onNewChat={startNewChat}
+        refreshTrigger={refreshTrigger}
+      />{" "}
+      <div className="flex-1 flex flex-col">
+        <header className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Brain className="w-8 h-8 text-blue-600" />
+              <h1 className="text-2xl font-bold text-gray-900">Idea Shaper</h1>
             </div>
-          )}
+            <div className="flex items-center space-x-2 text-sm text-gray-600">
+              {getStageDisplay(conversationState).icon}
+              <span>{getStageDisplay(conversationState).label}</span>
+            </div>
+          </div>
+        </header>
 
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
+        <main className="flex-1 flex flex-col">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {messages.length === 0 && (
+              <div className="text-center py-12">
+                <Brain className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+                <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                  Hey there! I'm Big Brother.
+                </h2>
+                <p className="text-gray-600 max-w-md mx-auto">
+                  I'm here to help you turn that vague idea in your head into
+                  something concrete and actionable. Tell me what's on your mind
+                  - no matter how rough or incomplete it is.
+                </p>
+              </div>
+            )}
+
+            {messages.map((message, index) => (
               <div
-                className={`max-w-3xl rounded-lg px-4 py-3 ${
-                  message.role === "user"
-                    ? "bg-blue-600 text-white"
-                    : "bg-white border border-gray-200 text-gray-900"
+                key={index}
+                className={`flex ${
+                  message.role === "user" ? "justify-end" : "justify-start"
                 }`}
               >
-                <p className="whitespace-pre-wrap">{message.content}</p>
-
-                {message.suggestions && message.suggestions.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-sm text-gray-600 mb-2">
-                      Quick responses:
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {message.suggestions.map((suggestion, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => sendMessage(suggestion)}
-                          className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 transition-colors"
-                          disabled={isLoading}
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
-                <div className="flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                  <span className="text-gray-600">
-                    Big Brother is thinking...
-                  </span>
+                <div
+                  className={`max-w-3xl rounded-lg px-4 py-3 ${
+                    message.role === "user"
+                      ? "bg-blue-600 text-white"
+                      : "bg-white border border-gray-200 text-gray-900"
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{message.content}</p>
                 </div>
               </div>
-            </div>
-          )}
+            ))}
 
-          <div ref={messagesEndRef} />
-        </div>
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <span className="text-gray-600">
+                      Big Brother is thinking...
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
-        <div className="border-t border-gray-200 bg-white p-6">
-          <form onSubmit={handleSubmit} className="flex space-x-4">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Share your idea, no matter how rough..."
-              className="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-            >
-              <Send className="w-4 h-4" />
-              <span>Send</span>
-            </button>
-          </form>
-        </div>
-      </main>
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="border-t border-gray-200 bg-white p-6">
+            <form onSubmit={handleSubmit} className="flex space-x-4">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Share your idea, no matter how rough..."
+                className="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isLoading}
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim()}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                <Send className="w-4 h-4" />
+                <span>Send</span>
+              </button>
+            </form>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
