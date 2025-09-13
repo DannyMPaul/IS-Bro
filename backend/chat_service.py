@@ -8,10 +8,11 @@ class ChatService:
     def __init__(self, db: Session):
         self.db = db
     
-    def create_conversation(self, conversation_id: str, title: str = None) -> Conversation:
+    def create_conversation(self, conversation_id: str, title: str = None, user_id: int = None) -> Conversation:
         conversation = Conversation(
             id=conversation_id,
-            title=title or "New Chat"
+            title=title or "New Chat",
+            user_id=user_id
         )
         self.db.add(conversation)
         self.db.commit()
@@ -23,6 +24,12 @@ class ChatService:
     
     def get_all_conversations(self) -> list[Conversation]:
         return self.db.query(Conversation).order_by(Conversation.updated_at.desc()).all()
+    
+    def get_user_conversations(self, user_id: int) -> list[Conversation]:
+        """Get all conversations for a specific user"""
+        return self.db.query(Conversation).filter(
+            Conversation.user_id == user_id
+        ).order_by(Conversation.updated_at.desc()).all()
     
     def update_conversation_title(self, conversation_id: str, title: str):
         conversation = self.get_conversation(conversation_id)
