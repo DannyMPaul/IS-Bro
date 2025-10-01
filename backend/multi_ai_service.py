@@ -1,10 +1,8 @@
-import openai
-import anthropic
+import google.generativeai as genai
 from typing import Dict, List, Optional, Any
 from enum import Enum
-import google.generativeai as genai
-import os
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
@@ -32,24 +30,26 @@ class MultiAIService:
         if gemini_key:
             try:
                 genai.configure(api_key=gemini_key)
-                self.gemini_client = genai.GenerativeModel('gemini-1.5-flash')
+                self.gemini_client = genai.GenerativeModel('gemini-2.0-flash')
                 print("Gemini client initialized successfully")
             except Exception as e:
                 print(f"Failed to initialize Gemini: {e}")
         
-        # Initialize OpenAI
+        # Initialize OpenAI (only if available)
         openai_key = os.getenv("OPENAI_API_KEY")
         if openai_key:
             try:
+                import openai
                 self.openai_client = openai.OpenAI(api_key=openai_key)
                 print("OpenAI client initialized successfully")
             except Exception as e:
                 print(f"Failed to initialize OpenAI: {e}")
         
-        # Initialize Anthropic
+        # Initialize Anthropic (only if available)
         anthropic_key = os.getenv("ANTHROPIC_API_KEY")
         if anthropic_key:
             try:
+                import anthropic
                 self.anthropic_client = anthropic.Anthropic(api_key=anthropic_key)
                 print("Anthropic client initialized successfully")
             except Exception as e:
@@ -154,7 +154,7 @@ class MultiAIService:
                 "response": response.text,
                 "provider": AIProvider.GEMINI.value,
                 "persona": persona.value,
-                "model": "gemini-1.5-flash"
+                "model": "gemini-2.0-flash"
             }
         except Exception as e:
             raise Exception(f"Gemini API error: {e}")
@@ -220,14 +220,18 @@ class MultiAIService:
             AIPersona.TECHNICAL_ARCHITECT
         ]
         
+        # If no providers available, return empty list
+        if not available_providers:
+            return perspectives
+        
         for i, persona in enumerate(key_personas):
-            if i < len(available_providers):
-                provider = available_providers[i]
-                try:
-                    response = self.get_response(message, persona, provider, conversation_history)
-                    perspectives.append(response)
-                except Exception as e:
-                    print(f"Failed to get {persona} perspective: {e}")
-                    continue
+            # Cycle through available providers (use modulo to wrap around)
+            provider = available_providers[i % len(available_providers)]
+            try:
+                response = self.get_response(message, persona, provider, conversation_history)
+                perspectives.append(response)
+            except Exception as e:
+                print(f"Failed to get {persona} perspective: {e}")
+                continue
         
         return perspectives

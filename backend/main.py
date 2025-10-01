@@ -88,6 +88,8 @@ class ChatResponse(BaseModel):
     session_id: str
     conversation_state: str
     suggestions: Optional[List[str]] = None
+    user_message_timestamp: str
+    assistant_message_timestamp: str
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest, db: Session = Depends(get_db), current_user: Optional[DBUser] = Depends(get_current_user_optional)):
@@ -124,14 +126,16 @@ def chat(request: ChatRequest, db: Session = Depends(get_db), current_user: Opti
         response = ai_service.process_message(request.message, conversation)
         
         # Save to database
-        chat_service.add_message(request.session_id, "user", request.message)
-        chat_service.add_message(request.session_id, "assistant", response.message, response.suggestions)
+        user_msg = chat_service.add_message(request.session_id, "user", request.message)
+        assistant_msg = chat_service.add_message(request.session_id, "assistant", response.message, response.suggestions)
         
         return ChatResponse(
             response=response.message,
             session_id=request.session_id,
             conversation_state=conversation.current_stage.value,
-            suggestions=response.suggestions
+            suggestions=response.suggestions,
+            user_message_timestamp=user_msg.timestamp.isoformat() + 'Z',
+            assistant_message_timestamp=assistant_msg.timestamp.isoformat() + 'Z'
         )
     
     except Exception as e:
@@ -151,8 +155,8 @@ def get_conversations(db: Session = Depends(get_db), current_user: Optional[DBUs
     return [{
         "id": conv.id,
         "title": conv.title,
-        "created_at": conv.created_at,
-        "updated_at": conv.updated_at,
+        "created_at": conv.created_at.isoformat() + 'Z' if conv.created_at else None,
+        "updated_at": conv.updated_at.isoformat() + 'Z' if conv.updated_at else None,
         "stage": conv.stage,
         "message_count": len(conv.messages)
     } for conv in conversations_db]
@@ -168,7 +172,7 @@ def get_conversation_detail(conversation_id: str, db: Session = Depends(get_db))
     messages = [{
         "role": msg.role,
         "content": msg.content,
-        "timestamp": msg.timestamp,
+        "timestamp": msg.timestamp.isoformat() + 'Z' if msg.timestamp else None,
         "suggestions": json.loads(msg.suggestions) if msg.suggestions else None
     } for msg in conversation.messages]
     
@@ -177,8 +181,8 @@ def get_conversation_detail(conversation_id: str, db: Session = Depends(get_db))
         "title": conversation.title,
         "stage": conversation.stage,
         "messages": messages,
-        "created_at": conversation.created_at,
-        "updated_at": conversation.updated_at
+        "created_at": conversation.created_at.isoformat() + 'Z' if conversation.created_at else None,
+        "updated_at": conversation.updated_at.isoformat() + 'Z' if conversation.updated_at else None
     }
 
 @app.put("/api/conversations/{conversation_id}/title")
@@ -328,7 +332,7 @@ def chat_multi_perspective(request: MultiPerspectiveRequest, db: Session = Depen
         ]
         
         # Save user message first
-        chat_service.add_message(request.session_id, "user", request.message)
+        user_msg = chat_service.add_message(request.session_id, "user", request.message)
         
         # Get multi-perspective analysis
         perspectives = multi_ai_service.get_multi_perspective_analysis(
@@ -338,6 +342,7 @@ def chat_multi_perspective(request: MultiPerspectiveRequest, db: Session = Depen
         
         # Convert to AIResponse objects
         ai_responses = []
+        assistant_timestamps = []
         for perspective in perspectives:
             ai_response = AIResponse(
                 message=perspective["response"],
@@ -348,16 +353,19 @@ def chat_multi_perspective(request: MultiPerspectiveRequest, db: Session = Depen
             ai_responses.append(ai_response)
             
             # Save each perspective as a separate assistant message
-            chat_service.add_message(
+            assistant_msg = chat_service.add_message(
                 request.session_id, 
                 "assistant", 
                 f"[{perspective.get('persona', 'AI')}]: {perspective['response']}"
             )
+            assistant_timestamps.append(assistant_msg.timestamp.isoformat())
         
         return MultiPerspectiveResponse(
             perspectives=ai_responses,
             session_id=request.session_id,
-            conversation_state="exploring"
+            conversation_state="exploring",
+            user_message_timestamp=user_msg.timestamp.isoformat() + 'Z',
+            assistant_message_timestamps=[ts.isoformat() + 'Z' for ts in assistant_timestamps]
         )
     
     except Exception as e:

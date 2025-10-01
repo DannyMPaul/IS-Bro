@@ -76,6 +76,8 @@ class MultiPerspectiveResponse(BaseModel):
     perspectives: List[AIResponse]
     session_id: str
     conversation_state: str
+    user_message_timestamp: str
+    assistant_message_timestamps: List[str]
 
 # Market Research Models
 class MarketResearchRequest(BaseModel):

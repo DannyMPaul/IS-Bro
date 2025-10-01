@@ -159,3 +159,102 @@ html {
   outline-offset: 2px;
   box-shadow: 0 0 0 4px theme('colors.blue.500/20');
 }
+
+/* Custom Scrollbars */
+/* General app scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: theme('colors.gray.200');
+}
+
+::-webkit-scrollbar-thumb {
+  background: theme('colors.blue.800');
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: theme('colors.blue.900');
+}
+
+::-webkit-scrollbar-corner {
+  background: theme('colors.gray.200');
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: theme('colors.blue.800') theme('colors.gray.200');
+}
+
+/* Chat-specific scrollbar */
+.chat-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.chat-scroll::-webkit-scrollbar-track {
+  background: theme('colors.gray.100');
+  border-radius: 3px;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: theme('colors.blue.700');
+  border-radius: 3px;
+  transition: background 0.2s ease, width 0.2s ease;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: theme('colors.blue.800');
+  width: 8px;
+}
+
+.chat-scroll::-webkit-scrollbar-corner {
+  background: theme('colors.gray.100');
+}
+
+/* Dark mode scrollbars */
+.dark ::-webkit-scrollbar-track {
+  background: theme('colors.blue.950');
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: theme('colors.yellow.600');
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: theme('colors.yellow.500');
+}
+
+.dark ::-webkit-scrollbar-corner {
+  background: theme('colors.blue.950');
+}
+
+.dark .chat-scroll::-webkit-scrollbar-track {
+  background: theme('colors.blue.900');
+}
+
+.dark .chat-scroll::-webkit-scrollbar-thumb {
+  background: theme('colors.yellow.500');
+}
+
+.dark .chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: theme('colors.yellow.400');
+}
+
+.dark .chat-scroll::-webkit-scrollbar-corner {
+  background: theme('colors.blue.900');
+}
+
+/* Firefox dark mode */
+.dark * {
+  scrollbar-color: theme('colors.yellow.600') theme('colors.blue.950');
+}
+
+.dark .chat-scroll {
+  scrollbar-color: theme('colors.yellow.500') theme('colors.blue.900');
+}

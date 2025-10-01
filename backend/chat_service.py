@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from database import Conversation, Message, get_db
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import re
 
@@ -35,7 +35,7 @@ class ChatService:
         conversation = self.get_conversation(conversation_id)
         if conversation:
             conversation.title = title
-            conversation.updated_at = datetime.utcnow()
+            conversation.updated_at = datetime.now(timezone.utc)
             self.db.commit()
     
     def delete_conversation(self, conversation_id: str):
@@ -56,7 +56,7 @@ class ChatService:
         # Update conversation timestamp
         conversation = self.get_conversation(conversation_id)
         if conversation:
-            conversation.updated_at = datetime.utcnow()
+            conversation.updated_at = datetime.now(timezone.utc)
             
             # Auto-generate title from first user message
             if conversation.title == "New Chat" and role == "user":

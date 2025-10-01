@@ -15,7 +15,7 @@ class AIService:
         if api_key:
             try:
                 genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel('gemini-1.5-flash')
+                self.model = genai.GenerativeModel('gemini-2.0-flash')
                 print("Gemini client initialized successfully")
             except Exception as e:
                 print(f"Failed to initialize Gemini client: {e}")
@@ -44,8 +44,7 @@ class AIService:
         conversation.add_ai_message(ai_response)
         conversation.last_updated = datetime.now()
         
-        # Get suggestions and check if we should advance
-        suggestions = self._generate_suggestions(conversation.current_stage)
+        # Check if we should advance stage (removed suggestions)
         should_advance = self._should_advance_stage(conversation)
         
         if should_advance:
@@ -53,7 +52,7 @@ class AIService:
         
         return AIResponse(
             message=ai_response,
-            suggestions=suggestions,
+            suggestions=[],  # Removed suggestions
             conversation_id=conversation.id,
             stage=conversation.current_stage
         )
@@ -141,36 +140,6 @@ Be conversational, insightful, and focus on one key question at a time."""
             return "Time to get practical! If you had to build the simplest version of this idea in 3 months, what would it look like? What's the one feature that would provide immediate value?"
         
         return "That's helpful context. What's the next aspect of this idea you'd like to explore together?"
-
-    def _generate_suggestions(self, stage: ConversationStage) -> List[str]:
-        suggestions = {
-            ConversationStage.INITIAL: [
-                "What problem does this solve?",
-                "Who would use this?",
-                "Why does this matter?"
-            ],
-            ConversationStage.EXPLORING: [
-                "What alternatives exist?",
-                "What makes this unique?",
-                "What's the biggest challenge?"
-            ],
-            ConversationStage.STRUCTURING: [
-                "What's the core value proposition?",
-                "What are the constraints?",
-                "How would you measure success?"
-            ],
-            ConversationStage.ALTERNATIVES: [
-                "Consider a simpler approach",
-                "Target a niche first",
-                "Focus on one key feature"
-            ],
-            ConversationStage.REFINEMENT: [
-                "What's the MVP?",
-                "What tech stack?",
-                "What's the timeline?"
-            ]
-        }
-        return suggestions.get(stage, [])
 
     def _should_advance_stage(self, conversation: ConversationState) -> bool:
         return conversation.interaction_count % 3 == 0 and conversation.interaction_count > 0

@@ -13,6 +13,7 @@ __pycache__/
 *.pyd
 .Python
 env/
+venv/
 pip-log.txt
 pip-delete-this-directory.txt
 .tox/
@@ -28,7 +29,7 @@ coverage.xml
 .pytest_cache
 .hypothesis
 
-# OS
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -37,21 +38,25 @@ coverage.xml
 ehthumbs.db
 Thumbs.db
 
-# IDEs
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# Next.js
+# Next.js build files
 .next/
 out/
 build/
+dist/
+.next
 
-# AI Models (large files)
-models/
-*.bin
-*.safetensors
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+conversations.db
 
 # Logs
 logs/
@@ -59,3 +64,15 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Package manager files
+.yarn/
+.pnpm-debug.log*
+.npm/
+.yarn-integrity
