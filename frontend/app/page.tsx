@@ -15,11 +15,16 @@ import {
   Users,
   Moon,
   Sun,
+  Download,
+  Upload,
+  Keyboard,
+  HelpCircle,
 } from "lucide-react";
 import ChatList from "./components/ChatList";
 import { useAuth } from "../contexts/AuthContext";
 import { AuthModal } from "../components/AuthModal";
 import { formatChatTimestamp, cn } from "../lib/utils";
+import { MarkdownRenderer } from "../lib/markdown";
 
 interface Message {
   role: "user" | "assistant";
@@ -62,7 +67,9 @@ export default function Home() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [multiPerspectiveMode, setMultiPerspectiveMode] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { user, logout, token } = useAuth();
 
   const scrollToBottom = () => {
@@ -84,11 +91,119 @@ export default function Home() {
     // Theme class is already applied by the script in layout.tsx
   }, []);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ctrl+Enter to send message
+      if (event.ctrlKey && event.key === "Enter" && !isLoading) {
+        event.preventDefault();
+        sendMessage();
+      }
+
+      // Ctrl+N for new chat
+      if (event.ctrlKey && event.key === "n") {
+        event.preventDefault();
+        startNewChat();
+      }
+
+      // Ctrl+/ to show shortcuts help
+      if (event.ctrlKey && event.key === "/") {
+        event.preventDefault();
+        setShowShortcuts(!showShortcuts);
+      }
+
+      // Escape to close shortcuts or focus input
+      if (event.key === "Escape") {
+        if (showShortcuts) {
+          setShowShortcuts(false);
+        } else {
+          inputRef.current?.focus();
+        }
+      }
+
+      // Ctrl+K to focus input
+      if (event.ctrlKey && event.key === "k") {
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isLoading, showShortcuts]);
+
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
     document.documentElement.classList.toggle("dark", newTheme === "dark");
     localStorage.setItem("theme", newTheme);
+  };
+
+  const exportConversation = (format: "json" | "markdown") => {
+    if (!sessionId || messages.length === 0) return;
+
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
+    const filename = `conversation-${sessionId}-${timestamp}`;
+
+    if (format === "json") {
+      const exportData = {
+        id: sessionId,
+        stage: conversationState,
+        exported_at: new Date().toISOString(),
+        messages: messages.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.timestamp,
+          persona: msg.persona,
+          provider: msg.provider,
+          suggestions: msg.suggestions,
+        })),
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${filename}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else if (format === "markdown") {
+      let markdown = `# Idea Shaper Conversation\n\n`;
+      markdown += `**Session ID:** ${sessionId}\n`;
+      markdown += `**Stage:** ${conversationState}\n`;
+      markdown += `**Exported:** ${new Date().toLocaleString()}\n`;
+      markdown += `**Messages:** ${messages.length}\n\n---\n\n`;
+
+      messages.forEach((msg, index) => {
+        const role = msg.role === "user" ? "👤 **You**" : "🤖 **Big Brother**";
+        const persona = msg.persona ? ` (${msg.persona})` : "";
+        markdown += `## ${role}${persona}\n`;
+        markdown += `*${new Date(msg.timestamp).toLocaleString()}*\n\n`;
+        markdown += `${msg.content}\n\n`;
+
+        if (msg.suggestions && msg.suggestions.length > 0) {
+          markdown += `**Suggestions:**\n`;
+          msg.suggestions.forEach((suggestion) => {
+            markdown += `- ${suggestion}\n`;
+          });
+          markdown += `\n`;
+        }
+
+        if (index < messages.length - 1) {
+          markdown += `---\n\n`;
+        }
+      });
+
+      const blob = new Blob([markdown], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${filename}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   };
 
   const startNewChat = () => {
@@ -271,6 +386,71 @@ export default function Home() {
         onClose={() => setShowAuthModal(false)}
       />
 
+      {/* Keyboard Shortcuts Modal */}
+      {showShortcuts && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-100 dark:bg-slate-950 border border-gray-300 dark:border-slate-700 rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-blue-900 dark:text-yellow-400 flex items-center">
+                  <Keyboard className="w-5 h-5 mr-2" />
+                  Keyboard Shortcuts
+                </h3>
+                <button
+                  onClick={() => setShowShortcuts(false)}
+                  className="text-blue-700 dark:text-yellow-300 hover:text-blue-900 dark:hover:text-yellow-100"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-800 dark:text-yellow-200">
+                    Send message
+                  </span>
+                  <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
+                    Ctrl + Enter
+                  </kbd>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-800 dark:text-yellow-200">
+                    New conversation
+                  </span>
+                  <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
+                    Ctrl + N
+                  </kbd>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-800 dark:text-yellow-200">
+                    Focus input
+                  </span>
+                  <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
+                    Ctrl + K
+                  </kbd>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-800 dark:text-yellow-200">
+                    Show shortcuts
+                  </span>
+                  <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
+                    Ctrl + /
+                  </kbd>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-800 dark:text-yellow-200">
+                    Close modal
+                  </span>
+                  <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
+                    Esc
+                  </kbd>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 flex flex-col min-h-0">
         <header className="flex-shrink-0 bg-gray-200/80 backdrop-blur-md border-b border-gray-300/20 shadow-sm px-6 py-4 dark:bg-slate-900/80 dark:border-slate-700/20">
           <div className="flex items-center justify-between">
@@ -290,6 +470,45 @@ export default function Home() {
             </div>
 
             <div className="flex items-center space-x-4">
+              {/* Export/Import */}
+              <div className="flex items-center space-x-2">
+                <div className="relative group">
+                  <button
+                    className="flex items-center space-x-1 px-3 py-1.5 bg-gray-300 dark:bg-blue-800 text-blue-900 dark:text-yellow-400 rounded-full hover:bg-gray-400 dark:hover:bg-blue-700 transition-all"
+                    title="Export conversation"
+                    disabled={!sessionId || messages.length === 0}
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">Export</span>
+                  </button>
+
+                  {sessionId && messages.length > 0 && (
+                    <div className="absolute top-full right-0 mt-1 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <button
+                        onClick={() => exportConversation("json")}
+                        className="block w-full text-left px-4 py-2 text-sm text-blue-900 dark:text-yellow-100 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-t-lg"
+                      >
+                        Export as JSON
+                      </button>
+                      <button
+                        onClick={() => exportConversation("markdown")}
+                        className="block w-full text-left px-4 py-2 text-sm text-blue-900 dark:text-yellow-100 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-b-lg"
+                      >
+                        Export as Markdown
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setShowShortcuts(!showShortcuts)}
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-gray-300 dark:bg-blue-800 text-blue-900 dark:text-yellow-400 rounded-full hover:bg-gray-400 dark:hover:bg-blue-700 transition-all"
+                  title="Keyboard shortcuts (Ctrl+/)"
+                >
+                  <Keyboard className="w-4 h-4" />
+                </button>
+              </div>
+
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
@@ -446,9 +665,10 @@ export default function Home() {
                           )}
                         </div>
                       )}
-                      <p className="whitespace-pre-wrap leading-relaxed">
-                        {message.content}
-                      </p>
+                      <MarkdownRenderer
+                        content={message.content}
+                        className="leading-relaxed"
+                      />
                     </div>
 
                     <div
@@ -518,6 +738,7 @@ export default function Home() {
             <form onSubmit={handleSubmit} className="flex space-x-4">
               <div className="flex-1 relative">
                 <input
+                  ref={inputRef}
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -525,6 +746,9 @@ export default function Home() {
                   className="w-full border border-gray-400 dark:border-slate-600 rounded-2xl px-6 py-4 text-blue-900 dark:text-yellow-100 placeholder-blue-600 dark:placeholder-yellow-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm bg-gray-100 dark:bg-slate-900 backdrop-blur-sm transition-all"
                   disabled={isLoading}
                 />
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-blue-600 dark:text-yellow-400 opacity-60">
+                  Ctrl+Enter to send
+                </div>
               </div>
               <button
                 type="submit"

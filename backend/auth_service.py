@@ -28,16 +28,20 @@ class AuthService:
     def get_user_by_username(self, username: str) -> Optional[User]:
         return self.db.query(User).filter(User.username == username).first()
     
-    def create_user(self, email: str, username: str, password: str) -> User:
-        hashed_password = self.get_password_hash(password)
+    def create_user(self, user_data, db: Session) -> User:
+        hashed_password = self.get_password_hash(user_data.password)
+        # Extract username from email if not provided
+        username = user_data.email.split('@')[0]
+        
         user = User(
-            email=email,
+            email=user_data.email,
             username=username,
+            full_name=user_data.full_name,
             hashed_password=hashed_password
         )
-        self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
         return user
     
     def authenticate_user(self, email: str, password: str) -> Optional[User]:

@@ -61,11 +61,19 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
         )
     
     auth_service = AuthService(db)
-    user = auth_service.verify_token(credentials.credentials, db)
-    if not user:
+    email = auth_service.verify_token(credentials.credentials)
+    if not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    user = auth_service.get_user_by_email(email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -77,7 +85,11 @@ async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCrede
         return None
     
     auth_service = AuthService(db)
-    return auth_service.verify_token(credentials.credentials, db)
+    email = auth_service.verify_token(credentials.credentials)
+    if not email:
+        return None
+    
+    return auth_service.get_user_by_email(email)
 
 class ChatRequest(BaseModel):
     message: str
