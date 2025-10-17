@@ -19,12 +19,32 @@ import {
   Upload,
   Keyboard,
   HelpCircle,
+  Search,
+  FileText,
+  BarChart3,
 } from "lucide-react";
 import ChatList from "./components/ChatList";
 import { useAuth } from "../contexts/AuthContext";
 import { AuthModal } from "../components/AuthModal";
+import { TemplateModal } from "../components/TemplateModal";
+import { ConversationSearch } from "../components/ConversationSearch";
+import { ConversationInsights } from "../components/ConversationInsights";
+import { NavigationMenu } from "../components/NavigationMenu";
 import { formatChatTimestamp, cn } from "../lib/utils";
 import { MarkdownRenderer } from "../lib/markdown";
+
+interface Template {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  initial_prompt: string;
+  suggested_questions: string[];
+  target_audience: string;
+  estimated_duration: string;
+  difficulty_level: string;
+  tags: string[];
+}
 
 interface Message {
   role: "user" | "assistant";
@@ -65,6 +85,9 @@ export default function Home() {
   const [conversationState, setConversationState] = useState("initial");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showInsightsModal, setShowInsightsModal] = useState(false);
   const [multiPerspectiveMode, setMultiPerspectiveMode] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -112,10 +135,36 @@ export default function Home() {
         setShowShortcuts(!showShortcuts);
       }
 
+      // Ctrl+T for templates
+      if (event.ctrlKey && event.key === "t") {
+        event.preventDefault();
+        setShowTemplateModal(!showTemplateModal);
+      }
+
+      // Ctrl+F for search
+      if (event.ctrlKey && event.key === "f") {
+        event.preventDefault();
+        setShowSearchModal(!showSearchModal);
+      }
+
+      // Ctrl+I for insights
+      if (event.ctrlKey && event.key === "i") {
+        event.preventDefault();
+        if (sessionId) {
+          setShowInsightsModal(!showInsightsModal);
+        }
+      }
+
       // Escape to close shortcuts or focus input
       if (event.key === "Escape") {
         if (showShortcuts) {
           setShowShortcuts(false);
+        } else if (showTemplateModal) {
+          setShowTemplateModal(false);
+        } else if (showSearchModal) {
+          setShowSearchModal(false);
+        } else if (showInsightsModal) {
+          setShowInsightsModal(false);
         } else {
           inputRef.current?.focus();
         }
@@ -130,7 +179,14 @@ export default function Home() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isLoading, showShortcuts]);
+  }, [
+    isLoading,
+    showShortcuts,
+    showTemplateModal,
+    showSearchModal,
+    showInsightsModal,
+    sessionId,
+  ]);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
@@ -255,6 +311,11 @@ export default function Home() {
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
+
+    // Close template modal if open and we're sending from template
+    if (showTemplateModal) {
+      setShowTemplateModal(false);
+    }
 
     try {
       const headers: any = {
@@ -386,6 +447,31 @@ export default function Home() {
         onClose={() => setShowAuthModal(false)}
       />
 
+      <TemplateModal
+        isOpen={showTemplateModal}
+        onClose={() => setShowTemplateModal(false)}
+        onSelectTemplate={(template) => {
+          setInput(template.initial_prompt);
+          inputRef.current?.focus();
+        }}
+      />
+
+      <ConversationSearch
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+        onSelectConversation={loadConversation}
+      />
+
+      <ConversationInsights
+        conversationId={sessionId}
+        isOpen={showInsightsModal}
+        onClose={() => setShowInsightsModal(false)}
+        onQuestionSelect={(question) => {
+          setInput(question);
+          inputRef.current?.focus();
+        }}
+      />
+
       {/* Keyboard Shortcuts Modal */}
       {showShortcuts && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -431,6 +517,30 @@ export default function Home() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-blue-800 dark:text-yellow-200">
+                    Templates
+                  </span>
+                  <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
+                    Ctrl + T
+                  </kbd>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-800 dark:text-yellow-200">
+                    Search conversations
+                  </span>
+                  <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
+                    Ctrl + F
+                  </kbd>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-800 dark:text-yellow-200">
+                    Insights
+                  </span>
+                  <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
+                    Ctrl + I
+                  </kbd>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-800 dark:text-yellow-200">
                     Show shortcuts
                   </span>
                   <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
@@ -470,80 +580,7 @@ export default function Home() {
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* Export/Import */}
-              <div className="flex items-center space-x-2">
-                <div className="relative group">
-                  <button
-                    className="flex items-center space-x-1 px-3 py-1.5 bg-gray-300 dark:bg-blue-800 text-blue-900 dark:text-yellow-400 rounded-full hover:bg-gray-400 dark:hover:bg-blue-700 transition-all"
-                    title="Export conversation"
-                    disabled={!sessionId || messages.length === 0}
-                  >
-                    <Download className="w-4 h-4" />
-                    <span className="hidden sm:inline">Export</span>
-                  </button>
-
-                  {sessionId && messages.length > 0 && (
-                    <div className="absolute top-full right-0 mt-1 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                      <button
-                        onClick={() => exportConversation("json")}
-                        className="block w-full text-left px-4 py-2 text-sm text-blue-900 dark:text-yellow-100 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-t-lg"
-                      >
-                        Export as JSON
-                      </button>
-                      <button
-                        onClick={() => exportConversation("markdown")}
-                        className="block w-full text-left px-4 py-2 text-sm text-blue-900 dark:text-yellow-100 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-b-lg"
-                      >
-                        Export as Markdown
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => setShowShortcuts(!showShortcuts)}
-                  className="flex items-center space-x-1 px-3 py-1.5 bg-gray-300 dark:bg-blue-800 text-blue-900 dark:text-yellow-400 rounded-full hover:bg-gray-400 dark:hover:bg-blue-700 transition-all"
-                  title="Keyboard shortcuts (Ctrl+/)"
-                >
-                  <Keyboard className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Theme Toggle */}
-              <button
-                onClick={toggleTheme}
-                className="flex items-center space-x-2 px-3 py-1.5 bg-gray-300 dark:bg-blue-800 text-blue-900 dark:text-yellow-400 rounded-full hover:bg-gray-400 dark:hover:bg-blue-700 transition-all"
-                title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
-              >
-                {theme === "light" ? (
-                  <Moon className="w-4 h-4" />
-                ) : (
-                  <Sun className="w-4 h-4" />
-                )}
-              </button>
-
-              {/* Multi-Perspective Toggle */}
-              <button
-                onClick={() => setMultiPerspectiveMode(!multiPerspectiveMode)}
-                className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  multiPerspectiveMode
-                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
-                    : "bg-gray-300 dark:bg-blue-800 text-blue-900 dark:text-yellow-400 hover:bg-gray-400 dark:hover:bg-blue-700"
-                }`}
-                title={
-                  multiPerspectiveMode
-                    ? "Multi-AI Mode: ON"
-                    : "Multi-AI Mode: OFF"
-                }
-              >
-                {multiPerspectiveMode ? (
-                  <Users className="w-4 h-4" />
-                ) : (
-                  <User className="w-4 h-4" />
-                )}
-                <span>{multiPerspectiveMode ? "Multi-AI" : "Single AI"}</span>
-              </button>
-
+              {/* Conversation Stage */}
               <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-300 dark:bg-blue-800 rounded-full text-sm">
                 {getStageDisplay(conversationState).icon}
                 <span className="font-medium text-blue-900 dark:text-yellow-400">
@@ -551,31 +588,33 @@ export default function Home() {
                 </span>
               </div>
 
-              {user ? (
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-300 dark:bg-blue-800 rounded-full">
-                    <User className="w-4 h-4 text-blue-900 dark:text-yellow-400" />
-                    <span className="text-sm font-medium text-blue-900 dark:text-yellow-400">
-                      {user.full_name}
-                    </span>
-                  </div>
-                  <button
-                    onClick={logout}
-                    className="flex items-center space-x-1 px-3 py-2 text-sm text-blue-800 dark:text-yellow-300 hover:text-blue-900 dark:hover:text-yellow-200 hover:bg-gray-400 dark:hover:bg-blue-700 rounded-lg transition-all"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Logout</span>
-                  </button>
+              {/* Multi-Perspective Mode Indicator */}
+              {multiPerspectiveMode && (
+                <div className="flex items-center space-x-2 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full text-sm font-medium shadow-md">
+                  <Users className="w-4 h-4" />
+                  <span className="hidden sm:inline">Multi-AI Active</span>
                 </div>
-              ) : (
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 shadow-md hover:shadow-lg transition-all"
-                >
-                  <LogIn className="w-4 h-4" />
-                  <span>Sign In</span>
-                </button>
               )}
+
+              {/* Navigation Menu */}
+              <NavigationMenu
+                user={user}
+                theme={theme}
+                multiPerspectiveMode={multiPerspectiveMode}
+                sessionId={sessionId}
+                hasMessages={messages.length > 0}
+                onToggleTheme={toggleTheme}
+                onToggleMultiPerspective={() =>
+                  setMultiPerspectiveMode(!multiPerspectiveMode)
+                }
+                onShowTemplates={() => setShowTemplateModal(true)}
+                onShowSearch={() => setShowSearchModal(true)}
+                onShowInsights={() => setShowInsightsModal(true)}
+                onShowShortcuts={() => setShowShortcuts(true)}
+                onExport={exportConversation}
+                onShowAuth={() => setShowAuthModal(true)}
+                onLogout={logout}
+              />
             </div>
           </div>
         </header>

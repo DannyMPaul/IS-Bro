@@ -19,7 +19,9 @@ from models import (
     MultiPerspectiveRequest, MultiPerspectiveResponse, AIResponse,
     MarketResearchRequest, MarketResearchResponse, CompetitorData, IndustryData, MarketTrendData,
     IdeaMapRequest, IdeaMapResponse, IdeaNodeData, IdeaEdgeData,
-    AnalyticsRequest, AnalyticsDashboardResponse, ConversationAnalyticsData, UserAnalyticsData, IdeaAnalyticsData, SystemAnalyticsData
+    AnalyticsRequest, AnalyticsDashboardResponse, ConversationAnalyticsData, UserAnalyticsData, IdeaAnalyticsData, SystemAnalyticsData,
+    ConversationTemplateResponse, TemplateSearchRequest, StartFromTemplateRequest,
+    ConversationSearchRequest, ConversationSearchResponse, ConversationSearchResult
 )
 from database import create_tables, get_db, Conversation as DBConversation, Message as DBMessage, User as DBUser
 from chat_service import ChatService
@@ -28,6 +30,8 @@ from multi_ai_service import MultiAIService, AIPersona, AIProvider
 from market_research_service import MarketResearchService
 from visual_mapping_service import VisualMappingService
 from analytics_service import AnalyticsService
+from template_service import TemplateService, template_to_dict
+from search_service import SearchService
 
 security = HTTPBearer(auto_error=False)
 
@@ -49,6 +53,8 @@ multi_ai_service = MultiAIService()
 market_research_service = MarketResearchService()
 visual_mapping_service = VisualMappingService()
 analytics_service = AnalyticsService()
+template_service = TemplateService()
+search_service = SearchService()
 conversations = {}  # Backward compatibility
 
 # Authentication dependency
@@ -225,6 +231,33 @@ def get_conversation(session_id: str):
         "stage": conversation.current_stage.value,
         "current_idea": conversation.current_idea
     }
+
+@app.get("/api/conversation/{session_id}/insights")
+def get_conversation_insights(session_id: str, db: Session = Depends(get_db)):
+    """Get insights and follow-up questions for a conversation"""
+    try:
+        if session_id not in conversations:
+            # Try to load from database
+            chat_service = ChatService(db)
+            conversation_db = chat_service.get_conversation(session_id)
+            if not conversation_db:
+                raise HTTPException(status_code=404, detail="Conversation not found")
+            
+            # Convert to in-memory format
+            conversation = ConversationState()
+            conversation.id = session_id
+            for msg in conversation_db.messages:
+                conversation.add_message(msg.role, msg.content)
+            conversations[session_id] = conversation
+        
+        conversation = conversations[session_id]
+        insights = ai_service.get_conversation_insights(conversation)
+        
+        return insights
+        
+    except Exception as e:
+        print(f"Error getting conversation insights: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/proposal/{session_id}")
 def generate_proposal(session_id: str):
@@ -605,6 +638,166 @@ async def create_idea_map(
     except Exception as e:
         print(f"Error creating idea map: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# Template endpoints
+@app.get("/api/templates", response_model=List[ConversationTemplateResponse])
+def get_conversation_templates(
+    category: Optional[str] = None,
+    current_user: Optional[DBUser] = Depends(get_current_user_optional)
+):
+    """Get available conversation templates"""
+    try:
+        if category:
+            from template_service import TemplateCategory
+            templates = template_service.get_templates_by_category(TemplateCategory(category))
+        else:
+            templates = template_service.get_all_templates()
+        
+        return [ConversationTemplateResponse(**template_to_dict(t)) for t in templates]
+    
+    except Exception as e:
+        print(f"Error getting templates: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/templates/search", response_model=List[ConversationTemplateResponse])
+def search_templates(
+    request: TemplateSearchRequest,
+    current_user: Optional[DBUser] = Depends(get_current_user_optional)
+):
+    """Search conversation templates"""
+    try:
+        if request.query:
+            templates = template_service.search_templates(request.query)
+        elif request.category:
+            from template_service import TemplateCategory
+            templates = template_service.get_templates_by_category(TemplateCategory(request.category))
+        else:
+            templates = template_service.get_all_templates()
+        
+        return [ConversationTemplateResponse(**template_to_dict(t)) for t in templates]
+    
+    except Exception as e:
+        print(f"Error searching templates: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/templates/categories")
+def get_template_categories(
+    current_user: Optional[DBUser] = Depends(get_current_user_optional)
+):
+    """Get available template categories"""
+    try:
+        categories = template_service.get_categories()
+        return {"categories": categories}
+    
+    except Exception as e:
+        print(f"Error getting categories: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/templates/start")
+def start_conversation_from_template(
+    request: StartFromTemplateRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_user_optional)
+):
+    """Start a new conversation from a template"""
+    try:
+        template = template_service.get_template_by_id(request.template_id)
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        # Create new conversation
+        session_id = request.session_id or f"session_{datetime.now().timestamp()}"
+        chat_service = ChatService(db)
+        
+        user_id = current_user.id if current_user else None
+        conversation_db = chat_service.create_conversation(
+            session_id, 
+            title=template.title,
+            user_id=user_id
+        )
+        
+        # Add template initial message
+        chat_service.add_message(session_id, "user", template.initial_prompt)
+        
+        # Get AI response to the template prompt
+        conversation = ConversationState()
+        conversation.id = session_id
+        conversation.add_user_message(template.initial_prompt)
+        
+        ai_response = ai_service.process_message(template.initial_prompt, conversation)
+        
+        # Add AI response with template suggestions
+        suggestions = template.suggested_questions[:3]  # Limit to 3 suggestions
+        chat_service.add_message(session_id, "assistant", ai_response.message, suggestions)
+        
+        return {
+            "session_id": session_id,
+            "template_id": template.id,
+            "template_title": template.title,
+            "initial_prompt": template.initial_prompt,
+            "ai_response": ai_response.message,
+            "suggestions": suggestions
+        }
+    
+    except Exception as e:
+        print(f"Error starting conversation from template: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Search endpoints
+@app.post("/api/search/conversations", response_model=ConversationSearchResponse)
+def search_conversations(
+    request: ConversationSearchRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_user_optional)
+):
+    """Search through conversations"""
+    try:
+        user_id = current_user.id if current_user else None
+        
+        search_results = search_service.search_conversations(
+            db=db,
+            query=request.query,
+            user_id=user_id,
+            filters=request.filters,
+            limit=request.limit
+        )
+        
+        return ConversationSearchResponse(**search_results)
+    
+    except Exception as e:
+        print(f"Error searching conversations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/search/suggestions")
+def get_search_suggestions(
+    q: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_user_optional)
+):
+    """Get search suggestions"""
+    try:
+        user_id = current_user.id if current_user else None
+        suggestions = search_service.get_search_suggestions(db, q, user_id)
+        return {"suggestions": suggestions}
+    
+    except Exception as e:
+        print(f"Error getting search suggestions: {e}")
+        return {"suggestions": []}
+
+@app.get("/api/search/filters")
+def get_search_filters(
+    db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_user_optional)
+):
+    """Get available search filter options"""
+    try:
+        user_id = current_user.id if current_user else None
+        filters = search_service.get_filter_options(db, user_id)
+        return filters
+    
+    except Exception as e:
+        print(f"Error getting search filters: {e}")
+        return {"stages": [], "date_ranges": []}
 
 # Analytics endpoints
 @app.post("/api/analytics", response_model=AnalyticsDashboardResponse)

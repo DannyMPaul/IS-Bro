@@ -1,7 +1,8 @@
 import os
 import google.generativeai as genai
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
+import re
 
 from models import ConversationState, AIResponse, IdeaProposal, ConversationStage
 
@@ -143,6 +144,169 @@ Be conversational, insightful, and focus on one key question at a time."""
 
     def _should_advance_stage(self, conversation: ConversationState) -> bool:
         return conversation.interaction_count % 3 == 0 and conversation.interaction_count > 0
+
+    def generate_follow_up_questions(self, conversation: ConversationState) -> List[str]:
+        """Generate smart follow-up questions based on conversation context"""
+        try:
+            if not self.model:
+                return self._get_fallback_follow_up_questions(conversation.current_stage)
+            
+            context = self._build_context(conversation)
+            
+            prompt = f"""Based on this conversation about an idea, generate 3 thoughtful follow-up questions that would help explore gaps or deepen understanding. The conversation is in the {conversation.current_stage.value} stage.
+
+Conversation context:
+{context}
+
+Generate exactly 3 questions that:
+1. Address potential gaps in the discussion
+2. Help clarify important details
+3. Encourage deeper thinking
+
+Format as a simple list with one question per line."""
+
+            try:
+                response = self.model.generate_content(prompt)
+                questions = self._parse_follow_up_questions(response.text)
+                return questions[:3]  # Ensure we only return 3
+                
+            except Exception as e:
+                print(f"Follow-up generation error: {e}")
+                return self._get_fallback_follow_up_questions(conversation.current_stage)
+                
+        except Exception as e:
+            print(f"Error generating follow-up questions: {e}")
+            return self._get_fallback_follow_up_questions(conversation.current_stage)
+    
+    def _parse_follow_up_questions(self, text: str) -> List[str]:
+        """Parse follow-up questions from AI response"""
+        lines = text.strip().split('\n')
+        questions = []
+        
+        for line in lines:
+            line = line.strip()
+            # Remove numbering, bullets, etc.
+            line = re.sub(r'^[\d\.\-\*\+\s]+', '', line)
+            if line and line.endswith('?'):
+                questions.append(line)
+        
+        return questions
+    
+    def _get_fallback_follow_up_questions(self, stage: ConversationStage) -> List[str]:
+        """Get fallback follow-up questions based on conversation stage"""
+        fallback_questions = {
+            ConversationStage.INITIAL: [
+                "What specific problem does this solve for people?",
+                "Who would benefit most from this idea?",
+                "What makes this different from existing solutions?"
+            ],
+            ConversationStage.EXPLORING: [
+                "What challenges might you face implementing this?",
+                "How would you measure success?",
+                "What resources would you need to get started?"
+            ],
+            ConversationStage.STRUCTURING: [
+                "What would be the minimum viable version?",
+                "How would users discover and access this?",
+                "What partnerships might be valuable?"
+            ],
+            ConversationStage.ALTERNATIVES: [
+                "What if you focused on a smaller user group first?",
+                "How could you test this idea quickly?",
+                "What would make this 10x better than alternatives?"
+            ],
+            ConversationStage.REFINEMENT: [
+                "What would your first milestone look like?",
+                "How would you get your first users?",
+                "What could go wrong and how would you handle it?"
+            ],
+            ConversationStage.PROPOSAL: [
+                "What's the most important next step?",
+                "How will you know if this is working?",
+                "What would convince you this idea isn't viable?"
+            ]
+        }
+        
+        return fallback_questions.get(stage, fallback_questions[ConversationStage.INITIAL])
+
+    def get_conversation_insights(self, conversation: ConversationState) -> Dict[str, Any]:
+        """Analyze conversation and provide insights"""
+        try:
+            insights = {
+                "stage": conversation.current_stage.value,
+                "message_count": len(conversation.messages),
+                "interaction_count": conversation.interaction_count,
+                "duration_minutes": (datetime.now() - conversation.last_updated).total_seconds() / 60,
+                "follow_up_questions": self.generate_follow_up_questions(conversation),
+                "progress_score": self._calculate_progress_score(conversation),
+                "next_suggestions": self._get_next_step_suggestions(conversation)
+            }
+            
+            return insights
+            
+        except Exception as e:
+            print(f"Error getting conversation insights: {e}")
+            return {
+                "stage": conversation.current_stage.value,
+                "message_count": len(conversation.messages),
+                "follow_up_questions": self._get_fallback_follow_up_questions(conversation.current_stage),
+                "progress_score": 0.5,
+                "next_suggestions": ["Continue exploring your idea"]
+            }
+    
+    def _calculate_progress_score(self, conversation: ConversationState) -> float:
+        """Calculate how well the conversation is progressing"""
+        score = 0.0
+        
+        # Base score from stage progression
+        stage_scores = {
+            ConversationStage.INITIAL: 0.1,
+            ConversationStage.EXPLORING: 0.3,
+            ConversationStage.STRUCTURING: 0.5,
+            ConversationStage.ALTERNATIVES: 0.7,
+            ConversationStage.REFINEMENT: 0.85,
+            ConversationStage.PROPOSAL: 1.0
+        }
+        score += stage_scores.get(conversation.current_stage, 0.1)
+        
+        # Bonus for message engagement
+        if len(conversation.messages) >= 6:
+            score += 0.1
+        if len(conversation.messages) >= 12:
+            score += 0.1
+        
+        return min(1.0, score)
+    
+    def _get_next_step_suggestions(self, conversation: ConversationState) -> List[str]:
+        """Get suggestions for next steps based on conversation state"""
+        suggestions = {
+            ConversationStage.INITIAL: [
+                "Explore the problem space in more detail",
+                "Define your target audience clearly"
+            ],
+            ConversationStage.EXPLORING: [
+                "Start structuring your core concept",
+                "Consider potential challenges"
+            ],
+            ConversationStage.STRUCTURING: [
+                "Explore alternative approaches",
+                "Define success metrics"
+            ],
+            ConversationStage.ALTERNATIVES: [
+                "Refine your chosen direction",
+                "Plan implementation steps"
+            ],
+            ConversationStage.REFINEMENT: [
+                "Prepare your project proposal",
+                "Define clear next actions"
+            ],
+            ConversationStage.PROPOSAL: [
+                "Review and finalize your plan",
+                "Begin implementation"
+            ]
+        }
+        
+        return suggestions.get(conversation.current_stage, ["Continue developing your idea"])
 
     def generate_proposal(self, conversation: ConversationState) -> IdeaProposal:
         if self.model:

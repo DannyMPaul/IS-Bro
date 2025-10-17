@@ -155,6 +155,49 @@ class AnalyticsRequest(BaseModel):
     user_specific: bool = False
     time_range: Optional[str] = "30d"  # 7d, 30d, 90d, 1y
 
+# Template Models
+class ConversationTemplateResponse(BaseModel):
+    id: str
+    title: str
+    category: str
+    description: str
+    initial_prompt: str
+    suggested_questions: List[str]
+    target_audience: str
+    estimated_duration: str
+    difficulty_level: str
+    tags: List[str]
+
+class TemplateSearchRequest(BaseModel):
+    query: Optional[str] = None
+    category: Optional[str] = None
+
+class StartFromTemplateRequest(BaseModel):
+    template_id: str
+    session_id: Optional[str] = None
+
+# Search Models
+class ConversationSearchRequest(BaseModel):
+    query: str
+    filters: Optional[Dict[str, Any]] = {}
+    limit: Optional[int] = 20
+
+class ConversationSearchResult(BaseModel):
+    id: str
+    title: str
+    stage: str
+    created_at: str
+    updated_at: str
+    message_count: int
+    relevance_score: float
+    matching_snippet: str
+
+class ConversationSearchResponse(BaseModel):
+    results: List[ConversationSearchResult]
+    total_count: int
+    query: str
+    filters_applied: Dict[str, Any]
+
 class ConversationAnalyticsData(BaseModel):
     total_conversations: int
     active_conversations: int
