@@ -19,7 +19,14 @@ from models import (
     MultiPerspectiveRequest, MultiPerspectiveResponse, AIResponse,
     MarketResearchRequest, MarketResearchResponse, CompetitorData, IndustryData, MarketTrendData,
     IdeaMapRequest, IdeaMapResponse, IdeaNodeData, IdeaEdgeData,
+<<<<<<< Updated upstream
     AnalyticsRequest, AnalyticsDashboardResponse, ConversationAnalyticsData, UserAnalyticsData, IdeaAnalyticsData, SystemAnalyticsData
+=======
+    AnalyticsRequest, AnalyticsDashboardResponse, ConversationAnalyticsData, UserAnalyticsData, IdeaAnalyticsData, SystemAnalyticsData,
+    ConversationTemplateResponse, TemplateSearchRequest, StartFromTemplateRequest,
+    ConversationSearchRequest, ConversationSearchResponse, ConversationSearchResult,
+    SummaryType, SummaryRequest, ConversationSummaryResponse, ConversationSummaryList
+>>>>>>> Stashed changes
 )
 from database import create_tables, get_db, Conversation as DBConversation, Message as DBMessage, User as DBUser
 from chat_service import ChatService
@@ -28,6 +35,12 @@ from multi_ai_service import MultiAIService, AIPersona, AIProvider
 from market_research_service import MarketResearchService
 from visual_mapping_service import VisualMappingService
 from analytics_service import AnalyticsService
+<<<<<<< Updated upstream
+=======
+from template_service import TemplateService, template_to_dict
+from search_service import SearchService
+from summary_service import SummaryService
+>>>>>>> Stashed changes
 
 security = HTTPBearer(auto_error=False)
 
@@ -239,6 +252,49 @@ def generate_proposal(session_id: str):
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+# Summary endpoints
+@app.post("/api/summaries", response_model=ConversationSummaryResponse)
+async def create_conversation_summary(
+    request: SummaryRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_user_optional)
+):
+    """Generate a new summary for a conversation"""
+    try:
+        summary_service = SummaryService(db)
+        return await summary_service.generate_summary(request)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/summaries/{summary_id}", response_model=ConversationSummaryResponse)
+async def get_summary(
+    summary_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_user_optional)
+):
+    """Get a specific summary by ID"""
+    try:
+        summary_service = SummaryService(db)
+        return await summary_service.get_summary(summary_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/conversations/{conversation_id}/summaries", response_model=ConversationSummaryList)
+async def get_conversation_summaries(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_user_optional)
+):
+    """Get all summaries for a conversation"""
+    try:
+        summary_service = SummaryService(db)
+        summaries = await summary_service.get_conversation_summaries(conversation_id)
+        return ConversationSummaryList(summaries=summaries)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Authentication endpoints
 @app.post("/api/auth/register", response_model=UserResponse)
