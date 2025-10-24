@@ -3,7 +3,15 @@
 import React, { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "../../contexts/AuthContext";
-import { MessageSquare, Plus, Edit3, Trash2, Clock } from "lucide-react";
+import {
+  MessageSquare,
+  Plus,
+  Edit3,
+  Trash2,
+  Clock,
+  BarChart2,
+} from "lucide-react";
+import { ConversationSummaryView } from "./ConversationSummaryView";
 import { formatRelativeTime, formatChatTimestamp } from "../../lib/utils";
 
 interface Conversation {
@@ -18,7 +26,7 @@ interface ChatListProps {
   currentConversationId?: string;
   onSelectConversation: (id: string) => void;
   onNewChat: () => void;
-  refreshTrigger?: number; // Add trigger to refresh list
+  refreshTrigger?: number;
 }
 
 export default function ChatList({
@@ -30,6 +38,7 @@ export default function ChatList({
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [showSummary, setShowSummary] = useState(false);
   const { token, user } = useAuth();
 
   useEffect(() => {
@@ -44,8 +53,6 @@ export default function ChatList({
 
   const fetchConversations = async () => {
     try {
-      console.log("Fetching conversations...");
-
       const headers: any = {};
       if (token) {
         headers.Authorization = `Bearer ${token}`;
@@ -54,9 +61,7 @@ export default function ChatList({
       const response = await fetch("http://localhost:8000/api/conversations", {
         headers,
       });
-      console.log("Response status:", response.status);
       const data = await response.json();
-      console.log("Conversations data:", data);
       setConversations(data);
     } catch (error) {
       console.error("Failed to fetch conversations:", error);
@@ -193,6 +198,16 @@ export default function ChatList({
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSummary(true);
+                    }}
+                    className="p-2 text-blue-600 dark:text-yellow-400 hover:text-blue-800 dark:hover:text-yellow-200 hover:bg-gray-300 dark:hover:bg-slate-700 rounded-lg transition-all duration-150"
+                    title="View Summary"
+                  >
+                    <BarChart2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -213,6 +228,43 @@ export default function ChatList({
           </div>
         )}
       </div>
+
+      {/* Summary Dialog */}
+      {showSummary && currentConversationId && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto m-4">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-blue-900 dark:text-yellow-400">
+                  Conversation Summary
+                </h2>
+                <button
+                  onClick={() => setShowSummary(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <ConversationSummaryView
+                conversationId={currentConversationId}
+                onSummaryGenerated={() => {}}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

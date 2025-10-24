@@ -11,6 +11,12 @@ class ConversationStage(str, Enum):
     REFINEMENT = "refinement"
     PROPOSAL = "proposal"
 
+class SummaryType(str, Enum):
+    BRIEF = "brief"
+    DETAILED = "detailed"
+    TECHNICAL = "technical"
+    ACTION_ITEMS = "action_items"
+
 # Auth Models
 class UserCreate(BaseModel):
     email: EmailStr
@@ -234,6 +240,57 @@ class AnalyticsDashboardResponse(BaseModel):
     idea_analytics: IdeaAnalyticsData
     system_analytics: SystemAnalyticsData
     generated_at: str
+
+class SummaryRequest(BaseModel):
+    conversation_id: str
+    summary_type: SummaryType
+    include_sentiment: bool = False
+    include_key_points: bool = True
+
+class KeyPoint(BaseModel):
+    title: str
+    description: str
+    importance: float
+    category: Optional[str] = None
+
+class ConversationSummaryResponse(BaseModel):
+    summary_id: int
+    conversation_id: str
+    summary_type: SummaryType
+    content: str
+    key_points: Optional[List[KeyPoint]] = None
+    sentiment_score: Optional[float] = None
+    completion_percentage: float
+    categories: List[str]
+    tags: List[str]
+    created_at: datetime
+    updated_at: datetime
+
+class ConversationSummaryList(BaseModel):
+    summaries: List[ConversationSummaryResponse]
+
+class IdeaCategoryCreate(BaseModel):
+    name: str
+    description: str
+    parent_id: Optional[int] = None
+
+class IdeaCategoryResponse(BaseModel):
+    id: int
+    name: str
+    description: str
+    parent_id: Optional[int]
+    children: List['IdeaCategoryResponse']
+    created_at: datetime
+
+class IdeaTagCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class IdeaTagResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    created_at: datetime
 
 class ConversationState(BaseModel):
     id: Optional[str] = None

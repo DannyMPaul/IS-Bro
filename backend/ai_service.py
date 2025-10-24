@@ -26,7 +26,6 @@ class AIService:
             self.model = None
 
     def process_message(self, user_message: str, conversation: ConversationState) -> AIResponse:
-        """Process user message and generate appropriate AI response"""
         conversation.add_user_message(user_message)
         
         # Try to get AI response
@@ -59,7 +58,6 @@ class AIService:
         )
 
     def _generate_ai_response(self, user_message: str, conversation: ConversationState) -> str:
-        """Generate AI response using Gemini"""
         if not self.model:
             return None
             
@@ -146,7 +144,6 @@ Be conversational, insightful, and focus on one key question at a time."""
         return conversation.interaction_count % 3 == 0 and conversation.interaction_count > 0
 
     def generate_follow_up_questions(self, conversation: ConversationState) -> List[str]:
-        """Generate smart follow-up questions based on conversation context"""
         try:
             if not self.model:
                 return self._get_fallback_follow_up_questions(conversation.current_stage)
@@ -179,7 +176,6 @@ Format as a simple list with one question per line."""
             return self._get_fallback_follow_up_questions(conversation.current_stage)
     
     def _parse_follow_up_questions(self, text: str) -> List[str]:
-        """Parse follow-up questions from AI response"""
         lines = text.strip().split('\n')
         questions = []
         
@@ -193,7 +189,6 @@ Format as a simple list with one question per line."""
         return questions
     
     def _get_fallback_follow_up_questions(self, stage: ConversationStage) -> List[str]:
-        """Get fallback follow-up questions based on conversation stage"""
         fallback_questions = {
             ConversationStage.INITIAL: [
                 "What specific problem does this solve for people?",
@@ -230,7 +225,6 @@ Format as a simple list with one question per line."""
         return fallback_questions.get(stage, fallback_questions[ConversationStage.INITIAL])
 
     def get_conversation_insights(self, conversation: ConversationState) -> Dict[str, Any]:
-        """Analyze conversation and provide insights"""
         try:
             insights = {
                 "stage": conversation.current_stage.value,
@@ -255,7 +249,6 @@ Format as a simple list with one question per line."""
             }
     
     def _calculate_progress_score(self, conversation: ConversationState) -> float:
-        """Calculate how well the conversation is progressing"""
         score = 0.0
         
         # Base score from stage progression
@@ -278,7 +271,6 @@ Format as a simple list with one question per line."""
         return min(1.0, score)
     
     def _get_next_step_suggestions(self, conversation: ConversationState) -> List[str]:
-        """Get suggestions for next steps based on conversation state"""
         suggestions = {
             ConversationStage.INITIAL: [
                 "Explore the problem space in more detail",

@@ -53,9 +53,6 @@ class AnalyticsService:
         print("Analytics Service initialized")
     
     def generate_dashboard(self, db: Session, user_id: Optional[int] = None) -> AnalyticsDashboard:
-        """
-        Generate comprehensive analytics dashboard
-        """
         try:
             # Generate analytics for different aspects
             conversation_analytics = self._analyze_conversations(db, user_id)
@@ -76,7 +73,6 @@ class AnalyticsService:
             return self._get_mock_analytics()
     
     def _analyze_conversations(self, db: Session, user_id: Optional[int] = None) -> ConversationAnalytics:
-        """Analyze conversation patterns and engagement"""
         try:
             # Base query
             base_query = db.query(Conversation)
@@ -146,7 +142,6 @@ class AnalyticsService:
             )
     
     def _analyze_users(self, db: Session) -> UserAnalytics:
-        """Analyze user behavior and patterns"""
         try:
             # Total users
             total_users = db.query(User).count()
@@ -197,7 +192,6 @@ class AnalyticsService:
             )
     
     def _analyze_ideas(self, db: Session, user_id: Optional[int] = None) -> IdeaAnalytics:
-        """Analyze idea patterns and success metrics"""
         try:
             # Count conversations as proxy for ideas
             base_query = db.query(Conversation)
@@ -261,7 +255,6 @@ class AnalyticsService:
             )
     
     def _analyze_system_performance(self, db: Session) -> SystemAnalytics:
-        """Analyze system performance and usage"""
         try:
             # API usage (mock data based on endpoint popularity)
             api_usage = {
@@ -326,7 +319,6 @@ class AnalyticsService:
             )
     
     def get_conversation_insights(self, db: Session, conversation_id: str) -> Dict[str, Any]:
-        """Get detailed insights for a specific conversation"""
         try:
             conversation = db.query(Conversation).filter(
                 Conversation.id == conversation_id
@@ -359,7 +351,6 @@ class AnalyticsService:
             return {"error": str(e)}
     
     def _get_mock_analytics(self) -> AnalyticsDashboard:
-        """Return mock analytics when database queries fail"""
         return AnalyticsDashboard(
             conversation_analytics=ConversationAnalytics(
                 total_conversations=0,

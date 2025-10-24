@@ -50,7 +50,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check for stored token on mount
     const storedToken = localStorage.getItem("auth_token");
     if (storedToken) {
       setToken(storedToken);
@@ -72,7 +71,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const userData = await response.json();
         setUser(userData);
       } else {
-        // Token is invalid, remove it
         localStorage.removeItem("auth_token");
         setToken(null);
       }

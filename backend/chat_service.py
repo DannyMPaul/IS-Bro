@@ -26,7 +26,6 @@ class ChatService:
         return self.db.query(Conversation).order_by(Conversation.updated_at.desc()).all()
     
     def get_user_conversations(self, user_id: int) -> list[Conversation]:
-        """Get all conversations for a specific user"""
         return self.db.query(Conversation).filter(
             Conversation.user_id == user_id
         ).order_by(Conversation.updated_at.desc()).all()
@@ -67,8 +66,7 @@ class ChatService:
         return message
     
     def generate_title_from_message(self, message: str) -> str:
-        # Clean and truncate message for title
         clean_message = re.sub(r'[^\w\s]', '', message)
-        words = clean_message.split()[:5]  # First 5 words
+        words = clean_message.split()[:5]
         title = ' '.join(words)
         return title.capitalize() if title else "New Chat"

@@ -32,6 +32,7 @@ interface NavigationMenuProps {
   onShowSearch: () => void;
   onShowInsights: () => void;
   onShowShortcuts: () => void;
+  onShowGettingStarted?: () => void;
   onExport: (format: "json" | "markdown") => void;
   onShowAuth: () => void;
   onLogout: () => void;
@@ -49,6 +50,7 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
   onShowSearch,
   onShowInsights,
   onShowShortcuts,
+  onShowGettingStarted,
   onExport,
   onShowAuth,
   onLogout,
@@ -87,7 +89,7 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
         {
           icon: <FileText className="w-4 h-4" />,
           label: "Conversation Templates",
-          shortcut: "Ctrl+T",
+          shortcut: "Alt+T",
           onClick: () => {
             onShowTemplates();
             setIsOpen(false);
@@ -96,7 +98,7 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
         {
           icon: <Search className="w-4 h-4" />,
           label: "Search Conversations",
-          shortcut: "Ctrl+F",
+          shortcut: "Alt+F",
           onClick: () => {
             onShowSearch();
             setIsOpen(false);
@@ -105,7 +107,7 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
         {
           icon: <BarChart3 className="w-4 h-4" />,
           label: "Conversation Insights",
-          shortcut: "Ctrl+I",
+          shortcut: "Alt+I",
           onClick: () => {
             onShowInsights();
             setIsOpen(false);
@@ -141,6 +143,14 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
       category: "Settings & Preferences",
       items: [
         {
+          icon: <HelpCircle className="w-4 h-4" />,
+          label: "Getting Started",
+          onClick: () => {
+            onShowGettingStarted && onShowGettingStarted();
+            setIsOpen(false);
+          },
+        },
+        {
           icon: multiPerspectiveMode ? (
             <Users className="w-4 h-4" />
           ) : (
@@ -169,7 +179,7 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
         {
           icon: <Keyboard className="w-4 h-4" />,
           label: "Keyboard Shortcuts",
-          shortcut: "Ctrl+/",
+          shortcut: "Alt+/",
           onClick: () => {
             onShowShortcuts();
             setIsOpen(false);

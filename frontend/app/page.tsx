@@ -30,6 +30,7 @@ import { TemplateModal } from "../components/TemplateModal";
 import { ConversationSearch } from "../components/ConversationSearch";
 import { ConversationInsights } from "../components/ConversationInsights";
 import { NavigationMenu } from "../components/NavigationMenu";
+import { GettingStartedModal } from "../components/GettingStartedModal";
 import { formatChatTimestamp, cn } from "../lib/utils";
 import { MarkdownRenderer } from "../lib/markdown";
 
@@ -88,6 +89,7 @@ export default function Home() {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showInsightsModal, setShowInsightsModal] = useState(false);
+  const [showGettingStarted, setShowGettingStarted] = useState(false);
   const [multiPerspectiveMode, setMultiPerspectiveMode] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -103,60 +105,73 @@ export default function Home() {
     scrollToBottom();
   }, [messages]);
 
-  // Theme initialization
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
     const prefersDark = window.matchMedia(
       "(prefers-color-scheme: dark)"
     ).matches;
-    const initialTheme = savedTheme || (prefersDark ? "dark" : "light");
-    setTheme(initialTheme);
-    // Theme class is already applied by the script in layout.tsx
+    setTheme(savedTheme || (prefersDark ? "dark" : "light"));
   }, []);
 
-  // Keyboard shortcuts
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("idea_shaper_seen_getting_started")) {
+        setShowGettingStarted(true);
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Ctrl+Enter to send message
-      if (event.ctrlKey && event.key === "Enter" && !isLoading) {
+      if (event.repeat) return;
+
+      const key = event.key;
+      const keyLower = key.toLowerCase();
+      const alt = event.altKey;
+
+      if (alt && keyLower === "k") {
         event.preventDefault();
-        sendMessage();
+        event.stopPropagation();
+        inputRef.current?.focus();
+        return;
       }
 
-      // Ctrl+N for new chat
-      if (event.ctrlKey && event.key === "n") {
+      if (alt && (key === "/" || key === "?")) {
         event.preventDefault();
+        event.stopPropagation();
+        setShowShortcuts((prev) => !prev);
+        return;
+      }
+
+      if (alt && keyLower === "n") {
+        event.preventDefault();
+        event.stopPropagation();
         startNewChat();
+        return;
       }
 
-      // Ctrl+/ to show shortcuts help
-      if (event.ctrlKey && event.key === "/") {
+      if (alt && keyLower === "t") {
         event.preventDefault();
-        setShowShortcuts(!showShortcuts);
+        event.stopPropagation();
+        setShowTemplateModal((prev) => !prev);
+        return;
       }
 
-      // Ctrl+T for templates
-      if (event.ctrlKey && event.key === "t") {
+      if (alt && keyLower === "f") {
         event.preventDefault();
-        setShowTemplateModal(!showTemplateModal);
+        event.stopPropagation();
+        setShowSearchModal((prev) => !prev);
+        return;
       }
 
-      // Ctrl+F for search
-      if (event.ctrlKey && event.key === "f") {
+      if (alt && keyLower === "i" && sessionId) {
         event.preventDefault();
-        setShowSearchModal(!showSearchModal);
+        event.stopPropagation();
+        setShowInsightsModal((prev) => !prev);
+        return;
       }
 
-      // Ctrl+I for insights
-      if (event.ctrlKey && event.key === "i") {
-        event.preventDefault();
-        if (sessionId) {
-          setShowInsightsModal(!showInsightsModal);
-        }
-      }
-
-      // Escape to close shortcuts or focus input
-      if (event.key === "Escape") {
+      if (key === "Escape") {
         if (showShortcuts) {
           setShowShortcuts(false);
         } else if (showTemplateModal) {
@@ -165,26 +180,24 @@ export default function Home() {
           setShowSearchModal(false);
         } else if (showInsightsModal) {
           setShowInsightsModal(false);
+        } else if (showGettingStarted) {
+          setShowGettingStarted(false);
         } else {
           inputRef.current?.focus();
         }
-      }
-
-      // Ctrl+K to focus input
-      if (event.ctrlKey && event.key === "k") {
-        event.preventDefault();
-        inputRef.current?.focus();
+        return;
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [
     isLoading,
     showShortcuts,
     showTemplateModal,
     showSearchModal,
     showInsightsModal,
+    showGettingStarted,
     sessionId,
   ]);
 
@@ -226,32 +239,26 @@ export default function Home() {
       a.click();
       URL.revokeObjectURL(url);
     } else if (format === "markdown") {
-      let markdown = `# Idea Shaper Conversation\n\n`;
-      markdown += `**Session ID:** ${sessionId}\n`;
-      markdown += `**Stage:** ${conversationState}\n`;
-      markdown += `**Exported:** ${new Date().toLocaleString()}\n`;
-      markdown += `**Messages:** ${messages.length}\n\n---\n\n`;
-
+      let markdown =
+        `# Idea Shaper Conversation\n\n` +
+        `**Session ID:** ${sessionId}\n` +
+        `**Stage:** ${conversationState}\n` +
+        `**Exported:** ${new Date().toLocaleString()}\n` +
+        `**Messages:** ${messages.length}\n\n---\n\n`;
       messages.forEach((msg, index) => {
         const role = msg.role === "user" ? "👤 **You**" : "🤖 **Big Brother**";
         const persona = msg.persona ? ` (${msg.persona})` : "";
-        markdown += `## ${role}${persona}\n`;
-        markdown += `*${new Date(msg.timestamp).toLocaleString()}*\n\n`;
-        markdown += `${msg.content}\n\n`;
-
-        if (msg.suggestions && msg.suggestions.length > 0) {
-          markdown += `**Suggestions:**\n`;
-          msg.suggestions.forEach((suggestion) => {
-            markdown += `- ${suggestion}\n`;
-          });
-          markdown += `\n`;
+        markdown += `## ${role}${persona}\n*${new Date(
+          msg.timestamp
+        ).toLocaleString()}*\n\n${msg.content}\n\n`;
+        if (msg.suggestions?.length) {
+          markdown +=
+            `**Suggestions:**\n` +
+            msg.suggestions.map((s) => `- ${s}\n`).join("") +
+            `\n`;
         }
-
-        if (index < messages.length - 1) {
-          markdown += `---\n\n`;
-        }
+        if (index < messages.length - 1) markdown += `---\n\n`;
       });
-
       const blob = new Blob([markdown], { type: "text/markdown" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -305,14 +312,13 @@ export default function Home() {
     const userMessage: Message = {
       role: "user",
       content: messageToSend,
-      timestamp: new Date().toISOString(), // Keep client timestamp for immediate display
+      timestamp: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
-    // Close template modal if open and we're sending from template
     if (showTemplateModal) {
       setShowTemplateModal(false);
     }
@@ -472,6 +478,22 @@ export default function Home() {
         }}
       />
 
+      <GettingStartedModal
+        isOpen={showGettingStarted}
+        onClose={() => {
+          try {
+            localStorage.setItem("idea_shaper_seen_getting_started", "1");
+          } catch (e) {}
+          setShowGettingStarted(false);
+        }}
+        onDontShowAgain={() => {
+          try {
+            localStorage.setItem("idea_shaper_seen_getting_started", "1");
+          } catch (e) {}
+          setShowGettingStarted(false);
+        }}
+      />
+
       {/* Keyboard Shortcuts Modal */}
       {showShortcuts && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -496,7 +518,7 @@ export default function Home() {
                     Send message
                   </span>
                   <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
-                    Ctrl + Enter
+                    Enter
                   </kbd>
                 </div>
                 <div className="flex justify-between items-center">
@@ -504,7 +526,7 @@ export default function Home() {
                     New conversation
                   </span>
                   <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
-                    Ctrl + N
+                    Alt + N
                   </kbd>
                 </div>
                 <div className="flex justify-between items-center">
@@ -512,7 +534,7 @@ export default function Home() {
                     Focus input
                   </span>
                   <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
-                    Ctrl + K
+                    Alt + K
                   </kbd>
                 </div>
                 <div className="flex justify-between items-center">
@@ -520,7 +542,7 @@ export default function Home() {
                     Templates
                   </span>
                   <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
-                    Ctrl + T
+                    Alt + T
                   </kbd>
                 </div>
                 <div className="flex justify-between items-center">
@@ -528,7 +550,7 @@ export default function Home() {
                     Search conversations
                   </span>
                   <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
-                    Ctrl + F
+                    Alt + F
                   </kbd>
                 </div>
                 <div className="flex justify-between items-center">
@@ -536,7 +558,7 @@ export default function Home() {
                     Insights
                   </span>
                   <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
-                    Ctrl + I
+                    Alt + I
                   </kbd>
                 </div>
                 <div className="flex justify-between items-center">
@@ -544,7 +566,7 @@ export default function Home() {
                     Show shortcuts
                   </span>
                   <kbd className="px-2 py-1 bg-gray-300 dark:bg-slate-800 text-xs rounded border">
-                    Ctrl + /
+                    Alt + /
                   </kbd>
                 </div>
                 <div className="flex justify-between items-center">
@@ -580,13 +602,15 @@ export default function Home() {
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* Conversation Stage */}
-              <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-300 dark:bg-blue-800 rounded-full text-sm">
-                {getStageDisplay(conversationState).icon}
-                <span className="font-medium text-blue-900 dark:text-yellow-400">
-                  {getStageDisplay(conversationState).label}
-                </span>
-              </div>
+              {/* Conversation Stage (hidden on initial to avoid duplicate 'Getting Started') */}
+              {conversationState !== "initial" && (
+                <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-300 dark:bg-blue-800 rounded-full text-sm">
+                  {getStageDisplay(conversationState).icon}
+                  <span className="font-medium text-blue-900 dark:text-yellow-400">
+                    {getStageDisplay(conversationState).label}
+                  </span>
+                </div>
+              )}
 
               {/* Multi-Perspective Mode Indicator */}
               {multiPerspectiveMode && (
@@ -597,6 +621,14 @@ export default function Home() {
               )}
 
               {/* Navigation Menu */}
+              <button
+                onClick={() => setShowGettingStarted(true)}
+                className="hidden sm:inline-flex items-center space-x-2 px-3 py-2 bg-gray-300 dark:bg-blue-800 text-blue-900 dark:text-yellow-400 rounded-lg hover:bg-gray-400 dark:hover:bg-blue-700 transition-all"
+                title="Getting Started"
+              >
+                <HelpCircle className="w-5 h-5" />
+                <span className="hidden md:inline">Getting Started</span>
+              </button>
               <NavigationMenu
                 user={user}
                 theme={theme}
@@ -611,9 +643,12 @@ export default function Home() {
                 onShowSearch={() => setShowSearchModal(true)}
                 onShowInsights={() => setShowInsightsModal(true)}
                 onShowShortcuts={() => setShowShortcuts(true)}
+                onShowGettingStarted={() => setShowGettingStarted(true)}
                 onExport={exportConversation}
                 onShowAuth={() => setShowAuthModal(true)}
                 onLogout={logout}
+                // Optional: expose in menu later
+                // onShowGettingStarted={() => setShowGettingStarted(true)}
               />
             </div>
           </div>
@@ -648,6 +683,17 @@ export default function Home() {
                   <div className="px-4 py-2 bg-gray-300 dark:bg-blue-800 rounded-full text-sm font-medium text-blue-900 dark:text-yellow-400">
                     ✨ Build something amazing
                   </div>
+                </div>
+
+                {/* Getting Started call-to-action */}
+                <div className="mt-8">
+                  <button
+                    onClick={() => setShowGettingStarted(true)}
+                    className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow hover:shadow-md transition"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                    <span>Open Getting Started Guide</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -786,7 +832,7 @@ export default function Home() {
                   disabled={isLoading}
                 />
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-blue-600 dark:text-yellow-400 opacity-60">
-                  Ctrl+Enter to send
+                  Enter to send
                 </div>
               </div>
               <button

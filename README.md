@@ -1,47 +1,47 @@
 # Idea Shaper
 
-An AI-powered idea refinement assistant that helps transform vague concepts into structured project blueprints through conversational mentorship.
+Transform rough ideas into structured project## Getting Started Guide
+
+New users get an interactive onboarding experience:
+
+- Automatically appears on first visit (dismissible)
+- Access anytime from the header or main menu
+- Covers core features, templates, search, insights, and shortcutswith AI-powered mentorship. Get thoughtful guidance through Socratic questioning and interactive refinement.
 
 ## Features
 
-- **🧠 Conversational AI Mentor**: Socratic questioning approach to idea refinement
-- **📈 Progressive Idea Development**: Structured conversation flow from initial concept to proposal
-- **💬 Professional Chat Interface**: Modern, vibrant UI with dynamic timestamps and message bubbles
-- **⚡ Real-time AI Processing**: Powered by Gemini 1.5 Flash with multi-AI integration
-- **🔍 Market Research Integration**: Automated competitor analysis and industry insights
-- **🗺️ Visual Idea Mapping**: Interactive concept visualization with relationship detection
-- **📊 Advanced Analytics**: Comprehensive dashboard with user behavior tracking
-- **🎨 Vibrant Design**: Gradient backgrounds, smooth animations, and professional styling
+- **🧠 AI Mentorship** - Socratic questioning to refine your ideas naturally
+- **📈 Structured Development** - Guided flow from concept to actionable proposal
+- **💬 Modern Interface** - Clean, intuitive chat with rich formatting and animations
+- **⚡ Multi-AI Support** - Powered by Gemini, GPT-4, and Claude for diverse perspectives
+- **🔍 Market Research** - Automatic competitor analysis and industry insights
+- **🗺️ Visual Mapping** - See concept relationships through interactive graphs
+- **📊 Analytics Dashboard** - Track progress and conversation insights
+- **⌨️ Keyboard Shortcuts** - Quick actions for power users (Alt+N, Alt+T, Alt+F, etc.)
+- **💾 Export & Share** - Save conversations as JSON or Markdown
 
 ## Tech Stack
 
-### Backend
+**Backend**
 
-- **FastAPI**: High-performance Python web framework with async support
-- **Multi-AI Integration**: Gemini, OpenAI GPT-4, and Anthropic Claude support
-- **SQLAlchemy**: Modern ORM with SQLite database
-- **Market Research APIs**: News API, SERP API, Crunchbase integration
-- **NetworkX**: Graph-based visual mapping and relationship detection
-- **Pydantic**: Data validation and settings management
+- FastAPI for high-performance async APIs
+- Multi-AI support (Gemini, OpenAI, Anthropic)
+- SQLAlchemy + SQLite for data persistence
+- Market research APIs (News API, SERP, Crunchbase)
+- NetworkX for visual concept mapping
 
-### Frontend
+**Frontend**
 
-- **Next.js 14**: React framework with App Router and SSR
-- **TypeScript**: Type-safe development with modern ES features
-- **Tailwind CSS**: Utility-first styling with custom animations
-- **Lucide React**: Beautiful, consistent icon library
-- **Date-fns**: Modern date formatting and manipulation
-- **Gradient Design**: Vibrant colors, smooth animations, and professional UI
+- Next.js 14 with TypeScript and App Router
+- Tailwind CSS for responsive, modern styling
+- Lucide React icons and date-fns utilities
+- Markdown rendering with syntax highlighting
 
 ## Quick Start
 
-### Prerequisites
+**Prerequisites:** Python 3.8+, Node.js 18+
 
-- Python 3.8+
-- Node.js 18+
-- CUDA-compatible GPU (recommended for AI model)
-
-### Backend Setup
+**Backend**
 
 ```bash
 cd backend
@@ -49,9 +49,9 @@ pip install -r requirements.txt
 python main.py
 ```
 
-The API will be available at `http://localhost:8000`
+Server runs at `http://localhost:8000`
 
-### Frontend Setup
+**Frontend**
 
 ```bash
 cd frontend
@@ -59,7 +59,26 @@ npm install
 npm run dev
 ```
 
-The web interface will be available at `http://localhost:3000`
+App available at `http://localhost:3000`
+
+## Keyboard Shortcuts
+
+- **Enter** - Send message
+- **Alt + N** - New conversation
+- **Alt + K** - Focus input field
+- **Alt + T** - Open templates
+- **Alt + F** - Search conversations
+- **Alt + I** - View insights
+- **Alt + /** - Show all shortcuts
+- **Esc** - Close modals
+
+## In‑App Getting Started Guide
+
+A guided onboarding is available inside the app to help new users:
+
+- Open it from the header button near the Menu, or via Menu → Getting Started
+- It appears automatically on your first visit (you can dismiss or choose "Don’t show again")
+- Covers quick steps, core tools (Templates, Search, Insights, Export), and keyboard shortcuts
 
 ## Project Structure
 
@@ -79,27 +98,27 @@ The web interface will be available at `http://localhost:3000`
 
 ## Usage
 
-1. Start both backend and frontend servers
-2. Open `http://localhost:3000` in your browser
-3. Share your idea in the chat interface
-4. Follow Big Brother's guidance through the refinement process
-5. Receive a structured project proposal
+1. Launch both backend and frontend servers
+2. Navigate to `http://localhost:3000`
+3. Share your idea - no matter how rough
+4. Follow AI guidance through refinement stages
+5. Export your structured proposal
 
-## API Endpoints
+## Key API Endpoints
 
-- `POST /api/chat` - Send message to AI mentor
-- `GET /api/conversation/{session_id}` - Retrieve conversation history
-- `POST /api/proposal/{session_id}` - Generate structured proposal
-- `GET /health` - Health check
+- `POST /api/chat` - Send messages and get AI responses
+- `GET /api/conversation/{id}` - Retrieve conversation history
+- `POST /api/proposal/{id}` - Generate structured proposal
+- `GET /health` - Service health check
 
 ## Development
 
-The application follows a clean architecture with separate concerns:
+Clean architecture with separation of concerns:
 
-- AI logic in `ai_service.py`
-- Data models in `models.py`
-- API routes in `main.py`
-- React components in `frontend/components/`
+- `ai_service.py` - AI model integration and logic
+- `models.py` - Database schemas and data structures
+- `main.py` - API routes and endpoints
+- `frontend/components/` - React UI components
 
 ## License
 
